@@ -85,9 +85,9 @@ if __name__ == "__main__":
     print("\nChoose an option:")
     print("1. Grab FTP Banner")
     print("2. Check Anonymous Login")
-    print("4. Test Write Permissions")
-    print("5. Test Anonymous File Upload")
-    print("6. Download a File")
+    print("3. Test Write Permissions")
+    print("4. Test Anonymous File Upload")
+    print("5. Download a File")
     choice = input("Enter your choice (1-6): ")
 
     if choice == "1":
@@ -95,13 +95,13 @@ if __name__ == "__main__":
     elif choice == "2":
         if check_anonymous_login(target_ip):
             list_ftp_directories(target_ip, "anonymous", "")
-    elif choice == "4":
+    elif choice == "3":
         username = input("Enter username: ")
         password = input("Enter password: ")
         check_write_permission(target_ip, username, password)
-    elif choice == "5":
+    elif choice == "4":
         test_anonymous_upload(target_ip)
-    elif choice == "6":
+    elif choice == "5":
         username = input("Enter username: ")
         password = input("Enter password: ")
         remote_file = input("Enter the path of the remote file (e.g., /config/backup.txt): ")
