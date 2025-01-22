@@ -1,82 +1,84 @@
 import ftplib
+import tempfile
+import logging
+from typing import Optional
 
-def grab_banner(target):
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+def grab_banner(target: str) -> None:
     """Grab the FTP server banner."""
     try:
-        ftp = ftplib.FTP(target)
-        banner = ftp.getwelcome()  # Fetch the banner message
-        print(f"[+] FTP Banner: {banner}")
-        ftp.quit()
+        with ftplib.FTP(target) as ftp:
+            banner = ftp.getwelcome()
+            logging.info(f"FTP Banner: {banner}")
     except Exception as e:
-        print(f"[-] Failed to grab banner: {e}")
+        logging.error(f"Failed to grab banner: {e}")
 
-def check_anonymous_login(target):
+def check_anonymous_login(target: str) -> bool:
     """Check if anonymous login is allowed."""
     try:
-        ftp = ftplib.FTP(target)
-        ftp.login()  # Attempt to log in with anonymous credentials
-        print(f"[+] Anonymous login allowed on {target}")
-        ftp.quit()
-        return True
+        with ftplib.FTP(target) as ftp:
+            ftp.login()
+            logging.info(f"Anonymous login allowed on {target}")
+            return True
     except ftplib.error_perm:
-        print(f"[-] Anonymous login not allowed on {target}")
+        logging.warning(f"Anonymous login not allowed on {target}")
+        return False
+    except Exception as e:
+        logging.error(f"Error checking anonymous login: {e}")
         return False
 
-def list_ftp_directories(target, username, password):
+def list_ftp_directories(target: str, username: str, password: str) -> None:
     """List directories and files on the FTP server."""
     try:
-        ftp = ftplib.FTP(target)
-        ftp.login(user=username, passwd=password)
-        print(f"[+] Logged in to {target} as {username}")
-        print("[+] Directory Listing:")
-        ftp.retrlines('LIST')  # List directories and files
-        ftp.quit()
+        with ftplib.FTP(target) as ftp:
+            ftp.login(user=username, passwd=password)
+            logging.info(f"Logged in to {target} as {username}")
+            logging.info("Directory Listing:")
+            ftp.retrlines('LIST')
     except Exception as e:
-        print(f"[-] Failed to list directories: {e}")
+        logging.error(f"Failed to list directories: {e}")
 
-def check_write_permission(target, username, password):
+def check_write_permission(target: str, username: str, password: str) -> None:
     """Check if the FTP server allows file uploads (write permissions)."""
     try:
-        ftp = ftplib.FTP(target)
-        ftp.login(user=username, passwd=password)
-        test_file = "test_write.txt"
-        with open(test_file, "w") as f:
-            f.write("This is a test file for write permissions.")
-        with open(test_file, "rb") as f:
-            ftp.storbinary(f"STOR {test_file}", f)
-        print("[+] Write permissions are allowed!")
-        ftp.delete(test_file)  # Clean up
-        ftp.quit()
+        with ftplib.FTP(target) as ftp:
+            ftp.login(user=username, passwd=password)
+            with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+                temp_file.write(b"This is a test file for write permissions.")
+                temp_file_name = temp_file.name
+            with open(temp_file_name, "rb") as f:
+                ftp.storbinary(f"STOR {temp_file_name}", f)
+            logging.info("Write permissions are allowed!")
+            ftp.delete(temp_file_name)
     except Exception as e:
-        print(f"[-] No write permissions or failed to test: {e}")
+        logging.error(f"No write permissions or failed to test: {e}")
 
-def test_anonymous_upload(target):
+def test_anonymous_upload(target: str) -> None:
     """Test if anonymous users can upload files."""
     try:
-        ftp = ftplib.FTP(target)
-        ftp.login()
-        test_file = "anonymous_test.txt"
-        with open(test_file, "w") as f:
-            f.write("This is a test file uploaded anonymously.")
-        with open(test_file, "rb") as f:
-            ftp.storbinary(f"STOR {test_file}", f)
-        print(f"[+] Successfully uploaded {test_file} as an anonymous user.")
-        ftp.delete(test_file)  # Clean up
-        ftp.quit()
+        with ftplib.FTP(target) as ftp:
+            ftp.login()
+            with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+                temp_file.write(b"This is a test file uploaded anonymously.")
+                temp_file_name = temp_file.name
+            with open(temp_file_name, "rb") as f:
+                ftp.storbinary(f"STOR {temp_file_name}", f)
+            logging.info(f"Successfully uploaded {temp_file_name} as an anonymous user.")
+            ftp.delete(temp_file_name)
     except Exception as e:
-        print(f"[-] Anonymous upload failed: {e}")
+        logging.error(f"Anonymous upload failed: {e}")
 
-def download_file(target, username, password, remote_file, local_file):
+def download_file(target: str, username: str, password: str, remote_file: str, local_file: str) -> None:
     """Download a specific file from the FTP server."""
     try:
-        ftp = ftplib.FTP(target)
-        ftp.login(user=username, passwd=password)
-        with open(local_file, "wb") as f:
-            ftp.retrbinary(f"RETR {remote_file}", f.write)
-        print(f"[+] Successfully downloaded {remote_file} to {local_file}")
-        ftp.quit()
+        with ftplib.FTP(target) as ftp:
+            ftp.login(user=username, passwd=password)
+            with open(local_file, "wb") as f:
+                ftp.retrbinary(f"RETR {remote_file}", f.write)
+            logging.info(f"Successfully downloaded {remote_file} to {local_file}")
     except Exception as e:
-        print(f"[-] Failed to download file {remote_file}: {e}")
+        logging.error(f"Failed to download file {remote_file}: {e}")
 
 if __name__ == "__main__":
     target_ip = input("Enter the FTP server IP: ")
@@ -106,4 +108,4 @@ if __name__ == "__main__":
         local_file = input("Enter the path to save the file locally (e.g., backup.txt): ")
         download_file(target_ip, username, password, remote_file, local_file)
     else:
-        print("[-] Invalid choice. Exiting.")
+        logging.error("Invalid choice. Exiting.")
