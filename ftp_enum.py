@@ -88,7 +88,7 @@ if __name__ == "__main__":
     print("3. Test Write Permissions")
     print("4. Test Anonymous File Upload")
     print("5. Download a File")
-    choice = input("Enter your choice (1-6): ")
+    choice = input("Enter your choice (1-5): ")
 
     if choice == "1":
         grab_banner(target_ip)
