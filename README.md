@@ -24,8 +24,8 @@ Enter the FTP server IP: <IP-ADDRESS>
 Choose an option:
 1. Grab FTP Banner
 2. Check Anonymous Login
-4. Test Write Permissions
-5. Test Anonymous File Upload
-6. Download a File
+3. Test Write Permissions
+4. Test Anonymous File Upload
+5. Download a File
 Enter your choice (1-6):
 ```
