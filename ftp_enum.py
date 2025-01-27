@@ -7,7 +7,7 @@ from colorama import Fore, Style, init
 from typing import Optional
 
 init(autoreset=True)
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 
 def grab_banner(target: str) -> None:
     """Grab the FTP server banner."""
@@ -17,7 +17,6 @@ def grab_banner(target: str) -> None:
             logging.info(f"FTP Banner: {banner}")
     except Exception as e:
         logging.error(f"Failed to grab banner: {e}")
-
 def check_anonymous_login(target: str) -> bool:
     """Check if anonymous login is allowed."""
     try:
@@ -31,7 +30,6 @@ def check_anonymous_login(target: str) -> bool:
     except Exception as e:
         logging.error(f"Error checking anonymous login: {e}")
         return False
-
 def list_ftp_directories(target: str, username: str, password: str) -> None:
     """List directories and files on the FTP server."""
     try:
@@ -42,7 +40,6 @@ def list_ftp_directories(target: str, username: str, password: str) -> None:
             ftp.retrlines('LIST')
     except Exception as e:
         logging.error(f"Failed to list directories: {e}")
-
 def check_write_permission(target: str, username: str, password: str) -> None:
     """Check if the FTP server allows file uploads (write permissions)."""
     try:
@@ -57,7 +54,6 @@ def check_write_permission(target: str, username: str, password: str) -> None:
             ftp.delete(temp_file_name)
     except Exception as e:
         logging.error(f"No write permissions or failed to test: {e}")
-
 def test_anonymous_upload(target: str) -> None:
     """Test if anonymous users can upload files."""
     try:
@@ -72,7 +68,6 @@ def test_anonymous_upload(target: str) -> None:
             ftp.delete(temp_file_name)
     except Exception as e:
         logging.error(f"Anonymous upload failed: {e}")
-
 def download_file(target: str, username: str, password: str, remote_file: str, local_file: str) -> None:
     """Download a specific file from the FTP server."""
     try:
@@ -84,30 +79,33 @@ def download_file(target: str, username: str, password: str, remote_file: str, l
     except Exception as e:
         logging.error(f"Failed to download file {remote_file}: {e}")
 
-def simulate_brute_force(target: str, delay: str,  username: str, password_file: str) -> Optional[str]:
+def simulate_brute_force(target: str, delay: str, username: str, password_file: str) -> Optional[str]:
     """Attempts to brute force FTP login using a list of passwords from a file."""
 
     logging.warning(Fore.GREEN + Style.BRIGHT + "Warning: Use this feature only for authorized penetration testing on systems you have permission to test.")
     try:
-        delay = int(delay)
+        # Set a default delay if the input is empty
+        delay = int(delay) if delay else 1  # Default delay is 1 second
         with open(password_file, 'r') as file:
-            passwords = file.readlines()
-        
+            passwords = [line.strip() for line in file]  # Strip whitespace and newlines
+
         no_of_passwords = len(passwords)
         logging.info(Fore.BLUE + f"Starting brute force attack with {no_of_passwords} passwords.")
 
         start_time = time.time()
         for attempt, password in enumerate(passwords, start=1):
             password = password.strip()
+            logging.debug(f"Trying password: {password}")  # Debug log
             try:
                 with ftplib.FTP(target) as ftp:
                     ftp.login(user=username, passwd=password)
                     sys.stdout.write("\n")
                     logging.info(Fore.RED + f"Successful login with password: {Style.BRIGHT}{Fore.RED}{password}{Style.RESET_ALL} | {Fore.BLUE} Total attempts: {attempt} | Elapsed time: {time.time() - start_time:.1f} seconds")
                     return password
-            except ftplib.error_perm:
-                 sys.stdout.write(Fore.BLUE + f"\rCurrent Login attempts: {attempt}..")
-                 sys.stdout.flush()
+            except ftplib.error_perm as e:
+                logging.debug(f"Failed login with password: {password} | Error: {e}")  # Debug log
+                sys.stdout.write(Fore.BLUE + f"\rCurrent Login attempts: {attempt}..")
+                sys.stdout.flush()
             except ftplib.error_temp as e:
                 logging.warning(Fore.GREEN + f"Temporary error on attempt: {attempt} | {e}")
             except ftplib.all_errors as e:
