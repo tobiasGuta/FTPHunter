@@ -40,7 +40,7 @@ Enter your choice (1-5):
 ![Screenshot 2025-01-27 112056](https://github.com/user-attachments/assets/14596452-29f5-451d-93ad-ca6ec20879a2)
 
 
-![Screenshot 2025-01-27 112444](https://github.com/user-attachments/assets/4581d718-6217-4c45-9444-733157820820)
+
 
 
 ## OPTION 3:
