@@ -27,7 +27,7 @@ Choose an option:
 3. Test Write Permissions
 4. Test Anonymous File Upload
 5. Download a File
-6. simulate brute force attack
+6. Simulate Brute Force Attack
 
 q. Exit
 Enter your choice (1-5):
