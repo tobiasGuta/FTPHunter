@@ -30,7 +30,7 @@ Choose an option:
 6. Simulate Brute Force Attack
 
 q. Exit
-Enter your choice (1-5):
+Enter your choice (1-6):
 ```
 
 ## OPTION 1:
