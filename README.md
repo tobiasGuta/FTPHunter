@@ -27,6 +27,8 @@ Choose an option:
 3. Test Write Permissions
 4. Test Anonymous File Upload
 5. Download a File
+
+q. Exit
 Enter your choice (1-5):
 ```
 
