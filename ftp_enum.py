@@ -80,6 +80,17 @@ def download_file(target: str, username: str, password: str, remote_file: str, l
     except Exception as e:
         logging.error(f"Failed to download file {remote_file}: {e}")
 
+
+def get_valid_integer(prompt, default=None):
+            while True:
+                try:
+                    user_input = input(prompt)
+                    if user_input == "" and default is not None:
+                        return default
+                    return int(user_input)
+                except ValueError:
+                    print(Fore.BLUE + "Invalid input. Please enter an single digit integer.(e.g., 1, 2..)")
+
 def simulate_brute_force(target: str, delay: str, username: str, password_file: str) -> Optional[str]:
     """Attempts to brute force FTP login using a list of passwords from a file."""
 
@@ -102,8 +113,6 @@ def simulate_brute_force(target: str, delay: str, username: str, password_file: 
     keyboard.add_hotkey('p', toggle_pause)
 
     try:
-        # Set a default delay if the input is empty
-        delay = int(delay) if delay else 1  # Default delay is 1 second
         with open(password_file, 'r') as file:
             passwords = [line.strip() for line in file]  # Strip whitespace and newlines
 
@@ -178,8 +187,10 @@ if __name__ == "__main__":
         download_file(target_ip, username, password, remote_file, local_file)
     elif choice == "6":
         username = input("Enter username: ")
-        delay = input("Enter the delay between attempts (in seconds) : ")
         password_file = input("Enter the path to the password file (e.g., passwords.txt): ")
+        print(Fore.BLUE+ "\nEnter the following values to Begin, Hit ENTER to use the default values.")
+        default_delay = 1
+        delay = get_valid_integer("Enter the delay between attempts (in seconds) : ", default_delay)
         simulate_brute_force(target_ip, delay, username, password_file)
     elif choice == "q":
         sys.exit()
