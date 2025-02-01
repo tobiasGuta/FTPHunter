@@ -3,6 +3,8 @@ import tempfile
 import logging
 import sys
 import time
+import keyboard
+import os
 from colorama import Fore, Style, init
 from typing import Optional
 
@@ -79,46 +81,95 @@ def download_file(target: str, username: str, password: str, remote_file: str, l
     except Exception as e:
         logging.error(f"Failed to download file {remote_file}: {e}")
 
-def simulate_brute_force(target: str, delay: str, username: str, password_file: str) -> Optional[str]:
+# Helper Function to validate user input for integer values.
+def get_valid_integer(prompt, default=None):
+            while True:
+                try:
+                    user_input = input(prompt)
+                    if user_input == "" and default is not None:
+                        return default
+                    return int(user_input)
+                except ValueError:
+                    print(Fore.BLUE + "Invalid input. Please enter an single digit integer.(e.g., 1, 2..)")
+
+# Helper Function to validate user input for file paths.
+def get_valid_file_path(prompt):
+    while True:
+        file_path = input(prompt)
+        if os.path.isfile(file_path):
+            return file_path
+        else:
+            print("Invalid file path. Please enter a valid file path.")
+
+def simulate_brute_force(target: str, delay: str, timeout: str, max_retries: int, username: str, password_file: str) -> Optional[str]:
     """Attempts to brute force FTP login using a list of passwords from a file."""
 
     logging.warning(Fore.GREEN + Style.BRIGHT + "Warning: Use this feature only for authorized penetration testing on systems you have permission to test.")
+    
+    paused = False
+    total_paused_time = 0
+    pause_start_time = 0
+    consecutive_errors = 0  
+    
+# Function to toggle pause/resume the attack.
+    def toggle_pause():
+        nonlocal paused, pause_start_time, total_paused_time
+        paused = not paused
+        if paused:
+            pause_start_time = time.time()
+        else:
+            total_paused_time += time.time() - pause_start_time
+        sys.stdout.write(Fore.YELLOW + Style.BRIGHT + f"\rBrute Force attack {'PAUSED' if paused else 'RESUMED'}")
+        sys.stdout.flush()
+
+    keyboard.add_hotkey('p', toggle_pause)
     try:
-        # Set a default delay if the input is empty
-        delay = int(delay) if delay else 1  # Default delay is 1 second
         with open(password_file, 'r') as file:
             passwords = [line.strip() for line in file]  # Strip whitespace and newlines
 
         no_of_passwords = len(passwords)
-        logging.info(Fore.BLUE + f"Starting brute force attack with {no_of_passwords} passwords.")
+        logging.info(Fore.BLUE + f"Starting Brute Force attack with {no_of_passwords} passwords. Press 'p' to pause/resume the attack.")
 
         start_time = time.time()
         for attempt, password in enumerate(passwords, start=1):
+            while paused:
+                sys.stdout.write(Fore.YELLOW + Style.BRIGHT + f"\rBrute force attack PAUSED")
+                sys.stdout.flush()
+                time.sleep(0.1)
             password = password.strip()
-            logging.debug(f"Trying password: {password}")  # Debug log
             try:
-                with ftplib.FTP(target) as ftp:
+               with ftplib.FTP(target, timeout=timeout) as ftp:
                     ftp.login(user=username, passwd=password)
                     sys.stdout.write("\n")
-                    logging.info(Fore.RED + f"Successful login with password: {Style.BRIGHT}{Fore.RED}{password}{Style.RESET_ALL} | {Fore.BLUE} Total attempts: {attempt} | Elapsed time: {time.time() - start_time:.1f} seconds")
+                    elapsed_time = time.time() - start_time - total_paused_time
+                    logging.critical(Fore.RED + f"SUCCESSFUL LOGIN with password: {Fore.RED}{Style.BRIGHT}{password}{Style.RESET_ALL} | {Fore.BLUE} Total attempts: {attempt} | Elapsed time: {elapsed_time:.1f} seconds")
+                    logging.critical(Fore.RED + Style.BRIGHT + "The Server is VULNERABLE to Brute Force Attack!")
                     return password
-            except ftplib.error_perm as e:
-                logging.debug(f"Failed login with password: {password} | Error: {e}")  # Debug log
-                sys.stdout.write(Fore.BLUE + f"\rCurrent Login attempts: {attempt}..")
+            except ftplib.error_perm:
+                sys.stdout.write(Fore.BLUE + f"\rFailed Login attempts : {attempt}..") # Trying every password in the list.
                 sys.stdout.flush()
             except ftplib.error_temp as e:
-                logging.warning(Fore.GREEN + f"Temporary error on attempt: {attempt} | {e}")
+                logging.warning(Fore.GREEN + f"Temporary ERROR on attempt: {attempt} | {e}")
+                consecutive_errors += 1
             except ftplib.all_errors as e:
-                logging.error(Fore.GREEN + f"FTP error on attempt: {attempt} | {e}")
-
+                logging.error(Fore.GREEN + f"FTP ERROR on attempt: {attempt} | {e}")
+                consecutive_errors += 1
+            if consecutive_errors >= max_retries:
+                break
             """ to avoid getting blocked by the server i added a delay between attempts | ratelimiting the attack """
-            time.sleep(delay)
+            delay_interval = 0.1
+            for _ in range(int(delay/delay_interval)):
+                if paused:
+                    break
+                time.sleep(delay_interval)
     except FileNotFoundError:
-        logging.error(Fore.BLUE + f"Password file {password_file} was not found.")
+        logging.error(Fore.BLUE + f"Password file {password_file} was NOT FOUND.")
     except Exception as e:
-        logging.error(Fore.GREEN + f"Error during brute force attempt: {e}")
-    sys.stdout.write("\n")
-    logging.error(Fore.GREEN +"Brute force attack failed. No valid password found in the list.")
+        logging.error(Fore.GREEN + f"Unexpected ERROR during brute force attempt: {e}")
+        sys.stdout.write("\n")
+    finally:
+        keyboard.unhook_all()
+    logging.error(Fore.GREEN + f"Brute force attack FAILED {'Due to Consecutive Errors.' if consecutive_errors>=max_retries  else 'No valid password found in the list.'}") # Final Statement.
     return None
 
 if __name__ == "__main__":
@@ -131,7 +182,7 @@ if __name__ == "__main__":
     print("5. Download a File")
     print("6. Simulate Brute Force Attack")
     print("\nq. Exit")
-    choice = input("Enter your choice (1-6): ")
+    choice = input("\nEnter your choice (1-6): ")
 
     if choice == "1":
         grab_banner(target_ip)
@@ -152,9 +203,17 @@ if __name__ == "__main__":
         download_file(target_ip, username, password, remote_file, local_file)
     elif choice == "6":
         username = input("Enter username: ")
-        delay = input("Enter the delay between attempts (in seconds) : ")
-        password_file = input("Enter the path to the password file (e.g., passwords.txt): ")
-        simulate_brute_force(target_ip, delay, username, password_file)
+        password_file = get_valid_file_path("Enter the path to the password file (e.g., passwords.txt): ")
+        
+        print(Fore.BLUE+ "\nEnter the following values to Begin or Hit ENTER to use the default values.")
+        # Default values ...
+        default_delay = 1
+        default_timeout = 10
+        default_max_retries = 10
+        delay = get_valid_integer("Enter the delay between attempts (in seconds) : ", default_delay)
+        timeout = get_valid_integer("Enter the timeout for the FTP connection (in seconds): ", default_timeout)
+        max_retries = get_valid_integer("Enter the maximum number of consecutive errors before exiting: ", default_max_retries)
+        simulate_brute_force(target_ip, delay, timeout, max_retries, username, password_file)
     elif choice == "q":
         sys.exit()
     else:
