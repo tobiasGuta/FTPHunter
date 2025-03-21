@@ -5,6 +5,7 @@ import sys
 import time
 from colorama import Fore, Style, init
 from typing import Optional
+import os
 
 init(autoreset=True)
 logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -110,17 +111,26 @@ def check_write_permission(target: str, username: str, password: str) -> None:
     except Exception as e:
         logging.error(f"No write permissions or failed to test: {e}")
 def test_anonymous_upload(target: str) -> None:
-    """Test if anonymous users can upload files."""
+    """Test if anonymous users can upload a file specified by the user."""
     try:
+        # Ask the user for the file to upload
+        file_to_upload = input("Please enter the full path of the file to upload: ").strip()
+
+        # Check if the file exists locally
+        if not os.path.exists(file_to_upload):
+            logging.error(f"File does not exist: {file_to_upload}")
+            return
+        
         with ftplib.FTP(target) as ftp:
-            ftp.login()
-            with tempfile.NamedTemporaryFile(delete=False) as temp_file:
-                temp_file.write(b"This is a test file uploaded anonymously.")
-                temp_file_name = temp_file.name
-            with open(temp_file_name, "rb") as f:
-                ftp.storbinary(f"STOR {temp_file_name}", f)
-            logging.info(f"Successfully uploaded {temp_file_name} as an anonymous user.")
-            ftp.delete(temp_file_name)
+            ftp.login()  # Login anonymously
+            
+            # Open the file and upload it
+            with open(file_to_upload, "rb") as f:
+                # Use the basename to upload the file, so it doesn't include the full path
+                ftp.storbinary(f"STOR {os.path.basename(file_to_upload)}", f)
+            
+            logging.info(f"Successfully uploaded {file_to_upload} as an anonymous user.")
+        
     except Exception as e:
         logging.error(f"Anonymous upload failed: {e}")
 def download_file(target: str, username: str, password: str, remote_file: str, local_file: str) -> None:
