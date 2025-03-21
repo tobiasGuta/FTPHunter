@@ -31,15 +31,70 @@ def check_anonymous_login(target: str) -> bool:
         logging.error(f"Error checking anonymous login: {e}")
         return False
 def list_ftp_directories(target: str, username: str, password: str) -> None:
-    """List directories and files on the FTP server."""
+    """List all files and directories on the FTP server, including hidden ones."""
     try:
         with ftplib.FTP(target) as ftp:
             ftp.login(user=username, passwd=password)
             logging.info(f"Logged in to {target} as {username}")
-            logging.info("Directory Listing:")
-            ftp.retrlines('LIST')
+
+            logging.info("Attempting 'LIST -al' to show all files:")
+            ftp.retrlines('LIST -al')
+
     except Exception as e:
         logging.error(f"Failed to list directories: {e}")
+
+def list_ftp_directories_recursive(ftp, path="/", depth=0, visited=None):
+    """Recursively list all directories and files on the FTP server, excluding `.` and `..`, and avoiding loops."""
+    if visited is None:
+        visited = set()  # To track already visited directories to avoid infinite loops
+
+    try:
+        # Avoid visiting the same directory twice (prevent infinite loops)
+        if path in visited:
+            return
+        visited.add(path)
+        
+        # Attempt to change to the target directory
+        response = ftp.cwd(path)
+        
+        # Check if we were able to successfully change into the directory
+        if "250" not in response:
+            logging.error(f"⚠️ Could not access directory {path}")
+            return
+        
+        # List the contents of the directory using 'ls -al' to include hidden files
+        files = []
+        ftp.retrlines('LIST -al', files.append)  # Retrieving the file list
+
+        for file in files:
+            parts = file.split()
+            if len(parts) < 9:
+                continue  # Skip malformed entries
+            
+            file_type = parts[0][0]  # File type: 'd' for directory, '-' for file, 'l' for symlink
+            name = parts[-1]  # Extract the file/directory name
+            
+            indent = "  " * depth  # Indentation for clarity
+            if name == "." or name == "..":
+                continue  # Skip current and parent directory references
+            
+            if file_type == 'd':  # Directory
+                logging.info(f"{indent}[DIR] {name}")
+                new_path = f"{path.rstrip('/')}/{name}"
+                
+                # Recursively list the contents of this directory
+                list_ftp_directories_recursive(ftp, new_path, depth + 1, visited)
+            elif file_type == '-':  # Regular file
+                logging.info(f"{indent}[FILE] {name}")
+            elif file_type == 'l':  # Symbolic link
+                logging.info(f"{indent}[LINK] {name} -> {parts[-3]}")  # Display symlink target
+
+        # Navigate back to the parent directory
+        ftp.cwd("..")
+
+    except Exception as e:
+        logging.error(f"⚠️ Error accessing {path}: {e}")
+
 def check_write_permission(target: str, username: str, password: str) -> None:
     """Check if the FTP server allows file uploads (write permissions)."""
     try:
@@ -123,39 +178,55 @@ def simulate_brute_force(target: str, delay: str, username: str, password_file: 
 
 if __name__ == "__main__":
     target_ip = input("Enter the FTP server IP: ")
-    print("\nChoose an option:")
-    print("1. Grab FTP Banner")
-    print("2. Check Anonymous Login")
-    print("3. Test Write Permissions")
-    print("4. Test Anonymous File Upload")
-    print("5. Download a File")
-    print("6. Simulate Brute Force Attack")
-    print("\nq. Exit")
-    choice = input("Enter your choice (1-6): ")
 
-    if choice == "1":
-        grab_banner(target_ip)
-    elif choice == "2":
-        if check_anonymous_login(target_ip):
-            list_ftp_directories(target_ip, "anonymous", "")
-    elif choice == "3":
-        username = input("Enter username: ")
-        password = input("Enter password: ")
-        check_write_permission(target_ip, username, password)
-    elif choice == "4":
-        test_anonymous_upload(target_ip)
-    elif choice == "5":
-        username = input("Enter username: ")
-        password = input("Enter password: ")
-        remote_file = input("Enter the path of the remote file (e.g., /config/backup.txt): ")
-        local_file = input("Enter the path to save the file locally (e.g., backup.txt): ")
-        download_file(target_ip, username, password, remote_file, local_file)
-    elif choice == "6":
-        username = input("Enter username: ")
-        delay = input("Enter the delay between attempts (in seconds) : ")
-        password_file = input("Enter the path to the password file (e.g., passwords.txt): ")
-        simulate_brute_force(target_ip, delay, username, password_file)
-    elif choice == "q":
-        sys.exit()
-    else:
-        logging.error("Invalid choice. Exiting.")
+    while True:
+        print("\nChoose an option:")
+        print("1. Grab FTP Banner")
+        print("2. Check Anonymous Login")
+        print("3. Test Write Permissions")
+        print("4. Test Anonymous File Upload")
+        print("5. Download a File")
+        print("6. Simulate Brute Force Attack")
+        print("7. Recursively List Directories & Files")  # NEW OPTION
+        print("\nq. Exit")
+
+        choice = input("Enter your choice (1-7 or q to quit): ").strip().lower()
+
+        if choice == "1":
+            grab_banner(target_ip)
+        elif choice == "2":
+            if check_anonymous_login(target_ip):
+                list_ftp_directories(target_ip, "anonymous", "")
+        elif choice == "3":
+            username = input("Enter username: ")
+            password = input("Enter password: ")
+            check_write_permission(target_ip, username, password)
+        elif choice == "4":
+            test_anonymous_upload(target_ip)
+        elif choice == "5":
+            username = input("Enter username: ")
+            password = input("Enter password: ")
+            remote_file = input("Enter the path of the remote file (e.g., /config/backup.txt): ")
+            local_file = input("Enter the path to save the file locally (e.g., backup.txt): ")
+            download_file(target_ip, username, password, remote_file, local_file)
+        elif choice == "6":
+            username = input("Enter username: ")
+            delay = input("Enter the delay between attempts (in seconds): ")
+            password_file = input("Enter the path to the password file (e.g., passwords.txt): ")
+            simulate_brute_force(target_ip, delay, username, password_file)
+        elif choice == "7":  # NEW RECURSIVE DIRECTORY LISTING
+            username = input("Enter username: ")
+            password = input("Enter password: ")
+            try:
+                with ftplib.FTP(target_ip) as ftp:
+                    ftp.login(user=username, passwd=password)
+                    logging.info(f"Logged in to {target_ip} as {username}")
+                    list_ftp_directories_recursive(ftp, "/")  # Start from root directory
+            except Exception as e:
+                logging.error(f"Failed to recursively list directories: {e}")
+        elif choice == "q":
+            print("Exiting FTP Hunter... Goodbye! 👋")
+            break
+        else:
+            logging.error("Invalid choice. Please enter a valid option.")
+
